@@ -1,0 +1,51 @@
+// ── Customer Testimonials ────────────────────────────────────────────────────
+export const TESTIMONIALS = [
+  {
+    id: 1,
+    name: 'Sari Dewi',
+    rating: 5,
+    text: 'Roti sobek sukunya enak banget! Tiap minggu pasti beli. Adonannya lembut dan wangi susu, anak-anak suka!',
+    avatar: 'S',
+    date: '2 hari lalu',
+  },
+  {
+    id: 2,
+    name: 'Budi Santoso',
+    rating: 5,
+    text: 'Croissant-nya persis kayak di Paris! Serius ini terenak yang pernah saya makan di Indonesia. Highly recommended!',
+    avatar: 'B',
+    date: '1 minggu lalu',
+  },
+  {
+    id: 3,
+    name: 'Rini Aprilia',
+    rating: 5,
+    text: 'Pesan kue ulang tahun custom, hasilnya luar biasa! Persis sesuai desain yang diminta. Tim-nya juga ramah.',
+    avatar: 'R',
+    date: '3 hari lalu',
+  },
+  {
+    id: 4,
+    name: 'Ahmad Fauzi',
+    rating: 4,
+    text: 'Kastengel-nya juara! Gurih, renyah, full keju. Beli 1 toples langsung habis dalam sehari haha.',
+    avatar: 'A',
+    date: '5 hari lalu',
+  },
+  {
+    id: 5,
+    name: 'Maya Putri',
+    rating: 5,
+    text: 'Brownies fudgy-nya GILA enak. Dense banget kayak makan coklat murni. Wajib coba buat pecinta coklat!',
+    avatar: 'M',
+    date: '1 minggu lalu',
+  },
+  {
+    id: 6,
+    name: 'Dika Rahman',
+    rating: 5,
+    text: 'Pre-order sistem-nya mudah, konfirmasi cepat. Kuenya tepat waktu dan fresh. Puas banget dengan pelayanannya!',
+    avatar: 'D',
+    date: '4 hari lalu',
+  },
+]
