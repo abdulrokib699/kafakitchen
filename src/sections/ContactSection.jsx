@@ -1,83 +1,117 @@
-import { useState }  from 'react'
-import { Icon }      from '../icons/index.jsx'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { Icon } from '../icons/index.jsx'
 import { formatRp, getTomorrow } from '../utils/helpers.js'
-import { WA_NUMBER, STORE_ADDRESS, OPERATING_HOURS, MAPS_URL } from '../data/constants.js'
-import { PRODUCTS }  from '../data/products.js'
-
-const CONTACT_INFO = [
-  {
-    icon: <Icon.MapPin />,
-    title: 'Alamat',
-    value: STORE_ADDRESS,
-    action: null,
-  },
-  {
-    icon: <Icon.Clock />,
-    title: 'Jam Buka',
-    value: 'Sen–Sab: 08.00–20.00 | Min: 08.00–15.00',
-    action: null,
-  },
-  {
-    icon: <Icon.Phone />,
-    title: 'WhatsApp',
-    value: '+62 812-3456-7890',
-    action: () => window.open(`https://wa.me/${WA_NUMBER}`, '_blank'),
-  },
-]
 
 const FORM_INITIAL = { name: '', wa: '', product: '', qty: 1, date: '', notes: '' }
 
 export default function ContactSection() {
-  const [form,      setForm]      = useState(FORM_INITIAL)
+  const [form, setForm] = useState(FORM_INITIAL)
   const [submitted, setSubmitted] = useState(false)
-  const [loading,   setLoading]   = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [products, setProducts] = useState([]) // untuk dropdown produk
+  const [settings, setSettings] = useState({
+    whatsapp_number: '',
+    address: '',
+    maps_url: '',
+    opening_hours: ''
+  })
+
+  // Ambil data produk dan pengaturan dari Supabase
+  useEffect(() => {
+    const fetchData = async () => {
+      // Ambil produk yang tersedia (stok > 0 dan status published)
+      const { data: productsData } = await supabase
+        .from('products')
+        .select('id, name, price')
+        .eq('status', 'published')
+        .gt('stock', 0)
+        .order('name')
+      if (productsData) setProducts(productsData)
+
+      // Ambil pengaturan toko
+      const { data: settingsData } = await supabase
+        .from('settings')
+        .select('key, value')
+      if (settingsData) {
+        const settingsMap = {}
+        settingsData.forEach(s => { settingsMap[s.key] = s.value })
+        setSettings({
+          whatsapp_number: settingsMap.whatsapp_number || '6281234567890',
+          address: settingsMap.address || 'Jl. Roti Manis No. 18, Bandung',
+          maps_url: settingsMap.maps_embed_url || 'https://goo.gl/maps/example',
+          opening_hours: settingsMap.opening_hours || 'Sen–Sab: 08.00–20.00 | Min: 08.00–15.00'
+        })
+      }
+    }
+    fetchData()
+  }, [])
 
   const update = (key, val) => setForm((f) => ({ ...f, [key]: val }))
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!form.name || !form.wa || !form.product || !form.date) {
       alert('Mohon lengkapi semua field yang wajib diisi!')
       return
     }
     setLoading(true)
-    setTimeout(() => {
+
+    // Simpan ke database Supabase (tabel orders)
+    const { error } = await supabase.from('orders').insert([
+      {
+        customer_name: form.name,
+        whatsapp: form.wa,
+        product_name: form.product,
+        quantity: form.qty,
+        pickup_date: form.date,
+        notes: form.notes,
+        status: 'pending'
+      }
+    ])
+
+    if (error) {
+      console.error('Gagal menyimpan pesanan:', error)
+      alert('Gagal menyimpan pesanan. Silakan coba lagi.')
       setLoading(false)
-      setSubmitted(true)
-      const msg = encodeURIComponent(
-        `🍞 *Pre-Order Kafa Kitchen*\n\n` +
-        `👤 Nama: ${form.name}\n` +
-        `📱 WA: ${form.wa}\n` +
-        `🛒 Produk: ${form.product}\n` +
-        `🔢 Jumlah: ${form.qty}\n` +
-        `📅 Tanggal Ambil: ${form.date}\n` +
-        `📝 Catatan: ${form.notes || '-'}`
-      )
-      window.open(`https://wa.me/${WA_NUMBER}?text=${msg}`, '_blank')
-    }, 1500)
+      return
+    }
+
+    // Jika berhasil, kirim WA ke admin
+    const msg = encodeURIComponent(
+      `🍞 *Pre-Order Kafa Kitchen*\n\n` +
+      `👤 Nama: ${form.name}\n` +
+      `📱 WA: ${form.wa}\n` +
+      `🛒 Produk: ${form.product}\n` +
+      `🔢 Jumlah: ${form.qty}\n` +
+      `📅 Tanggal Ambil: ${form.date}\n` +
+      `📝 Catatan: ${form.notes || '-'}`
+    )
+    window.open(`https://wa.me/${settings.whatsapp_number}?text=${msg}`, '_blank')
+
+    setLoading(false)
+    setSubmitted(true)
   }
 
-  /* ── Shared input styles ── */
-  const inputBase =
-    'w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all duration-200 font-poppins'
+  const inputBase = 'w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all duration-200 font-poppins'
   const inputStyle = {
     borderColor: 'rgba(93,58,26,0.2)',
-    background:  '#fff',
-    color:       '#3E2723',
+    background: '#fff',
+    color: '#3E2723',
   }
   const onFocus = (e) => {
     e.target.style.borderColor = '#E67E22'
-    e.target.style.boxShadow   = '0 0 0 3px rgba(230,126,34,0.1)'
+    e.target.style.boxShadow = '0 0 0 3px rgba(230,126,34,0.1)'
   }
-  const onBlur  = (e) => {
+  const onBlur = (e) => {
     e.target.style.borderColor = 'rgba(93,58,26,0.2)'
-    e.target.style.boxShadow   = 'none'
+    e.target.style.boxShadow = 'none'
   }
 
   return (
     <section id="contact" className="py-20 px-4" style={{ background: '#fff' }}>
       <div className="max-w-7xl mx-auto">
 
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="text-center mb-12">
           <div
             className="inline-block px-4 py-1 rounded-full text-sm font-poppins font-medium mb-3"
@@ -98,7 +132,7 @@ export default function ContactSection() {
 
         <div className="grid md:grid-cols-2 gap-10">
 
-          {/* ── Pre-order form ── */}
+          {/* Pre-order form */}
           <div
             className="rounded-3xl p-6 md:p-8"
             style={{ background: '#FFF5E6', border: '1px solid rgba(93,58,26,0.1)' }}
@@ -111,13 +145,9 @@ export default function ContactSection() {
             </h3>
 
             {submitted ? (
-              /* ── Success state ── */
               <div className="text-center py-10">
                 <div className="text-6xl mb-4">🎉</div>
-                <h4
-                  className="font-pacifico mb-2"
-                  style={{ color: '#5D3A1A', fontSize: '1.5rem' }}
-                >
+                <h4 className="font-pacifico mb-2" style={{ color: '#5D3A1A', fontSize: '1.5rem' }}>
                   Pesanan Diterima!
                 </h4>
                 <p className="font-poppins mb-6" style={{ color: '#6D4C41' }}>
@@ -133,8 +163,7 @@ export default function ContactSection() {
               </div>
             ) : (
               <div className="flex flex-col gap-4">
-
-                {/* Name */}
+                {/* Nama */}
                 <div>
                   <label className="block mb-1.5 text-sm font-medium font-poppins" style={{ color: '#5D3A1A' }}>
                     Nama Lengkap <span style={{ color: '#E67E22' }}>*</span>
@@ -168,7 +197,7 @@ export default function ContactSection() {
                   />
                 </div>
 
-                {/* Product dropdown */}
+                {/* Produk dropdown (dinamis dari database) */}
                 <div>
                   <label className="block mb-1.5 text-sm font-medium font-poppins" style={{ color: '#5D3A1A' }}>
                     Produk yang Dipesan <span style={{ color: '#E67E22' }}>*</span>
@@ -180,15 +209,15 @@ export default function ContactSection() {
                     onChange={(e) => update('product', e.target.value)}
                   >
                     <option value="">-- Pilih produk --</option>
-                    {PRODUCTS.filter((p) => p.stock !== 'habis').map((p) => (
+                    {products.map((p) => (
                       <option key={p.id} value={`${p.name} (${formatRp(p.price)})`}>
-                        {p.emoji} {p.name} – {formatRp(p.price)}
+                        {p.name} – {formatRp(p.price)}
                       </option>
                     ))}
                   </select>
                 </div>
 
-                {/* Qty + Date */}
+                {/* Jumlah & Tanggal */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block mb-1.5 text-sm font-medium font-poppins" style={{ color: '#5D3A1A' }}>
@@ -218,7 +247,7 @@ export default function ContactSection() {
                   </div>
                 </div>
 
-                {/* Notes */}
+                {/* Catatan */}
                 <div>
                   <label className="block mb-1.5 text-sm font-medium font-poppins" style={{ color: '#5D3A1A' }}>
                     Catatan Tambahan
@@ -235,7 +264,7 @@ export default function ContactSection() {
                   />
                 </div>
 
-                {/* Submit */}
+                {/* Submit button */}
                 <button
                   onClick={handleSubmit}
                   disabled={loading}
@@ -243,9 +272,9 @@ export default function ContactSection() {
                              flex items-center justify-center gap-2 transition-all duration-200
                              hover:scale-[1.02]"
                   style={{
-                    background:  loading ? '#ccc' : 'linear-gradient(135deg, #E67E22, #D35400)',
-                    boxShadow:   loading ? 'none' : '0 4px 20px rgba(230,126,34,0.4)',
-                    cursor:      loading ? 'not-allowed' : 'pointer',
+                    background: loading ? '#ccc' : 'linear-gradient(135deg, #E67E22, #D35400)',
+                    boxShadow: loading ? 'none' : '0 4px 20px rgba(230,126,34,0.4)',
+                    cursor: loading ? 'not-allowed' : 'pointer',
                   }}
                 >
                   {loading
@@ -257,15 +286,15 @@ export default function ContactSection() {
             )}
           </div>
 
-          {/* ── Store info ── */}
+          {/* Informasi Toko (dinamis dari Supabase) */}
           <div className="flex flex-col gap-5">
             {/* Map placeholder */}
             <div
               className="rounded-3xl overflow-hidden flex items-center justify-center"
               style={{
                 background: 'linear-gradient(135deg, #FFF5E6, #FFE0B2)',
-                height:     220,
-                border:     '1px solid rgba(93,58,26,0.1)',
+                height: 220,
+                border: '1px solid rgba(93,58,26,0.1)',
               }}
             >
               <div className="text-center">
@@ -274,49 +303,66 @@ export default function ContactSection() {
                   Kafa Kitchen
                 </p>
                 <p className="font-poppins text-sm" style={{ color: '#6D4C41' }}>
-                  Jl. Roti Manis No. 18, Bandung
+                  {settings.address}
                 </p>
                 <button
                   className="mt-2 px-4 py-1.5 rounded-full text-xs font-medium font-poppins text-white"
                   style={{ background: '#E67E22' }}
-                  onClick={() => window.open(MAPS_URL, '_blank')}
+                  onClick={() => window.open(settings.maps_url, '_blank')}
                 >
                   Buka di Google Maps
                 </button>
               </div>
             </div>
 
-            {/* Contact cards */}
-            {CONTACT_INFO.map(({ icon, title, value, action }) => (
-              <div
-                key={title}
-                className={`flex items-start gap-4 p-4 rounded-2xl transition-all duration-200
-                            ${action ? 'cursor-pointer hover:scale-[1.02]' : ''}`}
-                style={{ background: '#FFF5E6', border: '1px solid rgba(93,58,26,0.1)' }}
-                onClick={action || undefined}
-              >
-                <div
-                  className="p-2.5 rounded-xl"
-                  style={{ background: 'rgba(230,126,34,0.15)', color: '#E67E22' }}
-                >
-                  {icon}
-                </div>
-                <div>
-                  <p className="font-poppins font-semibold text-sm" style={{ color: '#5D3A1A' }}>
-                    {title}
-                  </p>
-                  <p className="font-poppins text-sm leading-relaxed" style={{ color: '#6D4C41' }}>
-                    {value}
-                  </p>
-                </div>
+            {/* Contact info cards */}
+            <div
+              className="flex items-start gap-4 p-4 rounded-2xl transition-all duration-200"
+              style={{ background: '#FFF5E6', border: '1px solid rgba(93,58,26,0.1)' }}
+            >
+              <div className="p-2.5 rounded-xl" style={{ background: 'rgba(230,126,34,0.15)', color: '#E67E22' }}>
+                <Icon.MapPin />
               </div>
-            ))}
+              <div>
+                <p className="font-poppins font-semibold text-sm" style={{ color: '#5D3A1A' }}>Alamat</p>
+                <p className="font-poppins text-sm leading-relaxed" style={{ color: '#6D4C41' }}>{settings.address}</p>
+              </div>
+            </div>
 
-            {/* WA direct button */}
+            <div
+              className="flex items-start gap-4 p-4 rounded-2xl"
+              style={{ background: '#FFF5E6', border: '1px solid rgba(93,58,26,0.1)' }}
+            >
+              <div className="p-2.5 rounded-xl" style={{ background: 'rgba(230,126,34,0.15)', color: '#E67E22' }}>
+                <Icon.Clock />
+              </div>
+              <div>
+                <p className="font-poppins font-semibold text-sm" style={{ color: '#5D3A1A' }}>Jam Buka</p>
+                <p className="font-poppins text-sm leading-relaxed" style={{ color: '#6D4C41' }}>{settings.opening_hours}</p>
+              </div>
+            </div>
+
+            <div
+              className="flex items-start gap-4 p-4 rounded-2xl cursor-pointer hover:scale-[1.02] transition-all duration-200"
+              style={{ background: '#FFF5E6', border: '1px solid rgba(93,58,26,0.1)' }}
+              onClick={() => window.open(`https://wa.me/${settings.whatsapp_number}`, '_blank')}
+            >
+              <div className="p-2.5 rounded-xl" style={{ background: 'rgba(230,126,34,0.15)', color: '#E67E22' }}>
+                <Icon.Phone />
+              </div>
+              <div>
+                <p className="font-poppins font-semibold text-sm" style={{ color: '#5D3A1A' }}>WhatsApp</p>
+                <p className="font-poppins text-sm leading-relaxed" style={{ color: '#6D4C41' }}>
+                  {settings.whatsapp_number}
+                </p>
+              </div>
+            </div>
+
+            {/* Direct chat button */}
             <button
               onClick={() =>
                 window.open(
-                  `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('Halo Kafa Kitchen! Saya ingin bertanya.')}`,
+                  `https://wa.me/${settings.whatsapp_number}?text=${encodeURIComponent('Halo Kafa Kitchen! Saya ingin bertanya.')}`,
                   '_blank'
                 )
               }
@@ -325,7 +371,7 @@ export default function ContactSection() {
                          hover:scale-[1.02]"
               style={{
                 background: 'linear-gradient(135deg, #25D366, #128C7E)',
-                boxShadow:  '0 4px 20px rgba(37,211,102,0.4)',
+                boxShadow: '0 4px 20px rgba(37,211,102,0.4)',
               }}
             >
               <Icon.WA />
